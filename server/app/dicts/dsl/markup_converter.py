@@ -266,9 +266,8 @@ class DSLConverter:
 		# ZipFile's extractall() is too slow, so we use a thread pool to extract files in parallel.
 			with ZipFile(self._resources_filename) as zip_file:
 				run_in_thread_pool(
-					zip_file.extract,
+					lambda filename: zip_file.extract(filename, self._resources_dir),
 					files_to_be_extracted,
-					[self._resources_dir] * len(files_to_be_extracted),
 					num_max_workers=len(files_to_be_extracted)
 				)
 
