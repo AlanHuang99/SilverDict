@@ -62,7 +62,9 @@ files, not unique editions; it never deduplicates or deletes originals.
 StarDict exports use HTML entries and 64-bit index offsets, with `.ifo`, `.idx`,
 `.dict`, optional `.syn`, `res/` and `manifest.json`. The manifest records the
 converter commit, options, output counts, warnings and source identity. Audio
-references, aliases and nested font assets are handled explicitly. A static
+references, aliases and nested font assets are handled explicitly. Legacy Speex
+pronunciations are decoded on demand to a bounded WAV cache for browser playback;
+the original `.spx` assets remain unchanged. A static
 resource audit reports missing local references; JavaScript-generated requests
 still need browser verification. Logged conversion errors fail the job. Chained
 or unresolved MDX aliases currently fail with an explanation instead of silently

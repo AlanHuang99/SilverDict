@@ -22,12 +22,12 @@ function renderCatalog() {
   for(const item of visible) {
     const card=node('article',undefined,'dictionary');
     const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=selected.has(item.id);checkbox.setAttribute('aria-label','Select '+item.title);
-    checkbox.disabled=['unsupported','ready','imported','queued','running'].includes(item.status);
+    checkbox.disabled=['unsupported','queued','running'].includes(item.status);
     checkbox.onchange=()=>{checkbox.checked?selected.add(item.id):selected.delete(item.id);$('#selection-count').textContent=selected.size?`(${selected.size})`:'';};
     const body=node('div');body.append(node('h2',item.title),node('div',item.path,'path'));
     const actions=node('div',undefined,'actions');actions.append(node('span',item.format,'badge'),node('span',item.status,'badge '+item.status),node('span',size(item.bytes||0),'size'));
     if(item.status!=='unsupported') {
-      if(!['ready','imported','queued','running'].includes(item.status)) {const b=node('button','Import');b.onclick=()=>enqueue(item.id,'import',b);actions.append(b);}
+      if(!['queued','running'].includes(item.status)) {const b=node('button',item.dictionary_id?'Add to group':'Import');b.onclick=()=>enqueue(item.id,'import',b);actions.append(b);}
       const exportButton=node('button','Export StarDict','secondary');exportButton.onclick=()=>enqueue(item.id,'export',exportButton);actions.append(exportButton);
     }
     body.append(actions);if(item.error)body.append(node('p',item.error,'hint'));card.append(checkbox,body);box.append(card);

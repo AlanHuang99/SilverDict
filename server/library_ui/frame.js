@@ -2,7 +2,7 @@
 let initialized = false;
 const parentOrigin = new URL(location.href).origin;
 const notify = (type, value) => parent.postMessage({silverdict: true, type, value}, parentOrigin);
-window.addEventListener('message', event => {
+window.addEventListener('message', async event => {
   if (initialized || event.source !== parent || event.origin !== parentOrigin || event.data?.type !== 'article') return;
   const {html, id} = event.data;
   if (typeof html !== 'string' || !/^[_a-zA-Z0-9-]+$/.test(id)) return;
@@ -21,7 +21,16 @@ window.addEventListener('message', event => {
     for (const attr of old.attributes) script.setAttribute(attr.name, attr.value);
     script.textContent = old.textContent;
     script.async = false;
-    old.replaceWith(script);
+    if (script.src) {
+      // An inline initializer must wait for the external dependency before it.
+      await new Promise(resolve => {
+        script.addEventListener('load', resolve, {once: true});
+        script.addEventListener('error', resolve, {once: true});
+        old.replaceWith(script);
+      });
+    } else {
+      old.replaceWith(script);
+    }
   }
   new ResizeObserver(() => notify('height', Math.ceil(document.documentElement.scrollHeight))).observe(document.body);
   notify('height', document.documentElement.scrollHeight);

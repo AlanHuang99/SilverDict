@@ -1,11 +1,25 @@
 # Implementation ledger: personal dictionary library
 
-- Specification and repository separation approved September 30; user authorized complete implementation/publishing/deployment.
-- Public fork created: AlanHuang99/SilverDict. Feature branch: codex/personal-dictionary-library.
-- Task interface review: backend creates library package; frontend lives separately in server/library_ui. Coordinator alone edits existing reader/create_app files. Packaging owns root Dockerfile.library/workflow. Deploy task consumes the tested image digest. No overlapping file ownership.
-- Task 1 pending; Task 2 pending; Task 3 pending; Task 4 pending.
+Specification and repository separation approved September 30, 2026. The user
+authorized implementation, publishing and deployment. Application source lives
+in its own fork; the host deployment repository contains Compose and operations.
 
-- Task 1 initial backend complete: durable jobs, native import, isolated PyGlossary export, group creation, resource warnings. Backend review found YAML durability, DSL abbreviation ZIP selection and aggregate conversion resources; fix pass underway.
-- Task 2 complete pending real browser acceptance: UI/reader review fixed four compatibility findings; 37 tests pass. Actual photo dictionary image and bilingual definitions render in opaque sandbox. First real StarDict export completed, with missing original gcg.css correctly reported.
-- Task 3 local Docker image builds successfully after adding libc6-dev for python-lzo. GitHub Actions publishing workflow prepared with pinned action SHAs and base image digest.
-- Task 4 dedicated SSD state/HDD cache created after UUID gate; validation container bound only to localhost:2629. Three native imports completed, fourth audio dictionary queued.
+- Backend complete: durable serialized imports, groups, isolated PyGlossary
+  conversion, HTML StarDict exports, atomic settings and resource limits.
+- UI complete: search across groups, collection selection, activity/retry/downloads,
+  opaque sandboxed article frames and local resources. Imported dictionaries can
+  be added to another group. External article scripts load before inline initializers.
+- Packaging complete: pinned dependencies/base image/actions, nonroot Docker image,
+  PR tests/builds and GHCR release publishing. Initial GitHub checks passed.
+- Independent backend/UI/final reviews completed. Confirmed findings were fixed
+  and scoped re-reviews closed them. Speex browser compatibility added during
+  real collection acceptance; its helper is undergoing focused verification.
+- Real acceptance: native photo and bilingual dictionaries render. A real export
+  contains 3,633 readable entries and 429 aliases. Static audit identifies a
+  missing original stylesheet. Browser rejects article access to the parent DOM
+  and management API. Large Longman MDX/MDD imports successfully.
+- Host onboarding and full collection import remain in progress. Do not interpret
+  container or API health alone as final HTTPS/browser/media acceptance.
+
+Private source inventories, screenshots, dictionary content and host job reports
+remain outside this public repository.
