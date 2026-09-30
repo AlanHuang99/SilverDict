@@ -47,3 +47,10 @@ Live HTTPS checks passed persistence across reload, deferred requests, cached
 reopening, all-entry expand/collapse, pronunciation and mobile layout. The local
 browser first-entry measurement for a 22-match query improved from 6.081 seconds
 to 0.313 seconds with the default reading order.
+
+Activity recovery follow-up: an older failed import/export now shows "Retry
+succeeded" when the same dictionary/action has a later completed attempt. Its
+original error remains expandable, and the redundant retry button is removed.
+Newer failures and failures of a different action remain actionable. Unchanged
+job polling preserves expanded history. The 86-test suite and browser checks
+with real Collins history plus synthetic unresolved failures pass.

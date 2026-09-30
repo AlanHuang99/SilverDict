@@ -55,16 +55,27 @@ async function enqueue(source_id,action,button) {
 }
 $('#import-selected').onclick=async()=>{const button=$('#import-selected');button.disabled=true;for(const id of [...selected])await enqueue(id,'import');button.disabled=false;view('jobs');};
 $('#refresh').onclick=refreshCatalog;$('#filter').oninput=renderCatalog;
-function renderJobs(){const box=$('#jobs');box.replaceChildren();const active=jobs.filter(j=>['queued','running'].includes(j.status)).length;$('#job-count').textContent=active?`(${active})`:'';
-  for(const job of jobs){const card=node('article',undefined,'job');const heading=node('header');const item=catalog.find(i=>i.id===job.source_id);heading.append(node('h2',`${job.action==='export'?'Export':'Import'} · ${item?.title||job.source_id}`),node('span',job.status,'badge '+job.status));card.append(heading);card.append(node('p',job.message||job.status));
+function renderJobs(){
+  const box=$('#jobs');box.replaceChildren();
+  const active=jobs.filter(j=>['queued','running'].includes(j.status)).length;$('#job-count').textContent=active?`(${active})`:'';
+  for(const job of jobs){
+    const failed=['failed','interrupted'].includes(job.status);
+    const retry=failed&&jobs.find(j=>j.source_id===job.source_id&&j.action===job.action&&j.status==='completed'&&Date.parse(j.created_at)>Date.parse(job.created_at));
+    const card=node('article',undefined,'job');const heading=node('header');const item=catalog.find(i=>i.id===job.source_id);
+    const action=job.action==='export'?'Export':'Import';
+    heading.append(node('h2',`${action} · ${item?.title||job.source_id}`),node('span',retry?'Retry succeeded':job.status,'badge '+(retry?'completed':job.status)));card.append(heading);
+    if(retry){
+      card.append(node('p',`A later ${action.toLowerCase()} completed successfully. This earlier failure is kept for history.`));
+      const details=node('details');details.append(node('summary','Earlier error'),node('p',job.message||job.status));card.append(details);
+    }else card.append(node('p',job.message||job.status));
     if(['queued','running'].includes(job.status)){const progress=document.createElement('progress');progress.max=100;if(job.progress>0)progress.value=job.progress;progress.setAttribute('aria-label',job.status);card.append(progress);}
     if(job.download_url){const url=new URL(job.download_url,location.origin);if(url.origin===location.origin&&url.pathname.startsWith('/api/library/')){const a=node('a','Download StarDict package ↓');a.href=url.href;card.append(a);}}
-    if(['failed','interrupted'].includes(job.status)){const b=node('button','Retry','secondary');b.onclick=()=>enqueue(job.source_id,job.action,b);card.append(b);}
+    if(failed&&!retry){const b=node('button','Retry','secondary');b.onclick=()=>enqueue(job.source_id,job.action,b);card.append(b);}
     box.append(card);
   }
   if(!jobs.length)box.append(empty('Nothing in the queue','Imports and open-format exports will appear here.'));
 }
-async function refreshJobs(){try{const old=jobs.filter(j=>['queued','running'].includes(j.status)).length;jobs=(await api('/jobs')).jobs||[];renderJobs();if(old!==jobs.filter(j=>['queued','running'].includes(j.status)).length)await refreshCatalog();}catch(e){notice(e.message);}}
+async function refreshJobs(){try{const old=jobs.filter(j=>['queued','running'].includes(j.status)).length;const next=(await api('/jobs')).jobs||[];const changed=JSON.stringify(next)!==JSON.stringify(jobs);jobs=next;if(changed||!$('#jobs').children.length)renderJobs();if(old!==jobs.filter(j=>['queued','running'].includes(j.status)).length)await refreshCatalog();}catch(e){notice(e.message);}}
 function entryCard(article, word, group, version, signal) {
   const card=node('details',undefined,'article');
   const summary=node('summary');summary.append(node('span',article.title));card.append(summary);
