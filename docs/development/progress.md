@@ -13,9 +13,10 @@ in its own fork; the host deployment repository contains Compose and operations.
   PR tests/builds and GHCR release publishing. GitHub-built versioned images
   have been pulled and deployed successfully.
 - Independent backend/UI/final reviews completed. Confirmed findings were fixed
-  and scoped re-reviews closed them. All 64 Python tests pass, including bounded
+  and scoped re-reviews closed them. All 75 Python tests pass, including bounded
   Speex decoding, corrupt-reader isolation, retry recovery, resource confinement
-  and simultaneous index readers/writers. JavaScript syntax checks pass.
+  simultaneous index readers/writers, confined local webfonts and CSS comment
+  handling. JavaScript syntax checks pass.
 - Real acceptance: native photo and bilingual dictionaries render. A real export
   contains 3,633 readable entries and 429 aliases. Static audit identifies a
   missing original stylesheet. Browser rejects article access to the parent DOM
@@ -24,6 +25,10 @@ in its own fork; the host deployment repository contains Compose and operations.
   browser lookup, illustration, pronunciation playback and mobile layout checks.
   The user selected a curated SSD collection as the sole source. Its imports and
   source-specific recovery are tracked in the private deployment runbook.
+- Pronunciation controls use compact keyboard-accessible speaker buttons with
+  loading, pause and retry states. Optional shared local webfonts preserve
+  dictionary-provided fonts and avoid installing server fonts as a substitute for
+  browser delivery.
 - Lookup failures return JSON and preserve healthy dictionary results. Legacy
   bundles with Finder metadata and extension-only asset names import safely.
   Full block audits distinguish source corruption from application errors.
