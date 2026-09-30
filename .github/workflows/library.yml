@@ -1,0 +1,57 @@
+name: Personal library image
+on:
+  pull_request:
+  push:
+    branches: [codex/personal-dictionary-library]
+    tags: ['library-v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Install native test dependencies
+        run: |
+          . /etc/os-release
+          for suite in "$VERSION_CODENAME" "$VERSION_CODENAME-updates" "$VERSION_CODENAME-security"; do
+            echo "deb https://archive.ubuntu.com/ubuntu $suite main universe"
+          done > /tmp/silverdict-ubuntu.list
+          apt_options=(-o Dir::Etc::sourcelist=/tmp/silverdict-ubuntu.list -o Dir::Etc::sourceparts=- -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
+          sudo apt-get "${apt_options[@]}" update
+          sudo apt-get "${apt_options[@]}" install -y --no-install-recommends liblzo2-dev ffmpeg
+      - run: pip install -r requirements-library.lock pytest==9.1.1
+      - run: python -m pytest tests -q
+      - run: node --check server/library_ui/library.js && node --check server/library_ui/frame.js
+  image:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - name: Log in to GHCR
+        if: startsWith(github.ref, 'refs/tags/library-v')
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and optionally publish
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: .
+          file: Dockerfile.library
+          push: ${{ startsWith(github.ref, 'refs/tags/library-v') }}
+          tags: ghcr.io/alanhuang99/silverdict:${{ startsWith(github.ref, 'refs/tags/library-v') && github.ref_name || 'validation' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true

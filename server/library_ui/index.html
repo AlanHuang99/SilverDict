@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#174d45"><title>SilverDict Library</title>
+<link rel="icon" href="/library-assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/library-assets/library.css">
+<script src="/library-assets/library.js" defer></script>
+</head>
+<body>
+<header><a class="brand" href="/" aria-label="SilverDict home"><img src="/library-assets/icon.svg" alt=""><span>SilverDict<small>A personal dictionary library</small></span></a><nav aria-label="Main"><button class="nav active" data-view="search">Read</button><button class="nav" data-view="catalog">Collection</button><button class="nav" data-view="jobs">Activity <span id="job-count"></span></button><button class="nav" data-view="settings">Settings</button></nav></header>
+<main>
+<section id="search-view" class="view">
+<div class="intro"><span class="eyebrow">WORDS, IN GOOD COMPANY</span><h1>One word. Many perspectives.</h1><p>Look across your dictionaries, follow a connection, discover a little more.</p></div>
+<form id="search-form" class="search-box"><label class="sr-only" for="query">Word or phrase</label><input id="query" name="q" placeholder="A word, a phrase, a curiosity…" autocomplete="off" maxlength="200" autofocus><label class="sr-only" for="group">Dictionary group</label><select id="group"><option>Default Group</option></select><button type="submit">Look up <span aria-hidden="true">↗</span></button></form>
+<div id="suggestions" class="suggestions" aria-label="Suggested words"></div>
+<div class="result-bar"><span id="result-summary" role="status">Your dictionaries, together.</span><span id="entry-controls" hidden><button id="expand-all" class="text-button">Expand all</button><button id="collapse-all" class="text-button">Collapse all</button></span><button id="open-collection" class="text-button">Manage collection →</button></div>
+<div id="results"><div class="empty"><div class="book-mark">Aa</div><h2>A shelf full of possibilities</h2><p>Search a word above, or choose dictionaries from your collection to get started.</p></div></div>
+</section>
+<section id="catalog-view" class="view" hidden>
+<div class="section-heading"><div><span class="eyebrow">YOUR REFERENCE SHELF</span><h1>Collection</h1><p id="catalog-summary">Discovering dictionaries…</p></div><button id="refresh" class="secondary">Refresh collection</button></div>
+<div class="catalog-tools"><label class="sr-only" for="filter">Filter dictionaries</label><input id="filter" placeholder="Filter by title, folder or format…"><label>Import into <input id="import-group" value="Default Group" maxlength="80" list="group-options"></label><datalist id="group-options"></datalist><button id="import-selected">Import selected <span id="selection-count"></span></button></div>
+<p class="hint">Original files stay untouched. Open-format exports include the dictionary and its available resources.</p>
+<div id="catalog" class="catalog"></div>
+</section>
+<section id="jobs-view" class="view" hidden><div class="section-heading"><div><span class="eyebrow">BEHIND THE SHELVES</span><h1>Activity</h1><p>Imports and exports continue while you browse.</p></div></div><div id="jobs" class="jobs"></div></section>
+<section id="settings-view" class="view" hidden>
+<div class="section-heading"><div><span class="eyebrow">MAKE IT YOURS</span><h1>Reading settings</h1><p>Choose the dictionaries you search and the order you read them.</p></div><button id="save-reading" disabled>Save changes</button></div>
+<div class="reading-tools"><label for="settings-group">Dictionary group</label><select id="settings-group"></select><button id="enable-all" class="secondary">Select all</button><button id="disable-all" class="secondary">Deselect all</button></div>
+<p class="hint">Drag a dictionary to reorder it, or use its move buttons. Unchecked dictionaries stay in your collection. Settings are saved for this group across your browsers.</p>
+<p id="reading-status" role="status">Loading settings…</p><ol id="reading-dictionaries"></ol>
+</section>
+<div id="notice" role="alert" hidden></div>
+</main>
+<footer><span>SilverDict × PyGlossary</span><span>Local collection. Open possibilities.</span></footer>
+</body></html>

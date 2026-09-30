@@ -41,7 +41,7 @@ def _gen_ngrams(input: str, ngramlen: int) -> list[str]:
 
 def get_connection() -> sqlite3.Connection:
 	if not hasattr(local_storage, 'connection'):
-		local_storage.connection = sqlite3.connect(Settings.SQLITE_DB_FILE)
+		local_storage.connection = sqlite3.connect(Settings.SQLITE_DB_FILE, timeout=60)
 	return local_storage.connection
 
 
@@ -53,6 +53,9 @@ def get_cursor() -> sqlite3.Cursor:
 
 def init_db() -> None:
 	cursor = get_cursor()
+	# Native imports and browser lookups share the local search index.
+	cursor.execute('PRAGMA journal_mode=WAL')
+	cursor.fetchone()
 	cursor.execute('''create table if not exists entries (
 		key text, -- the entry in lowercase and without accents
 		dictionary_name text, -- identifying name of the dictionary

@@ -177,6 +177,9 @@ class HTMLCleaner:
 		definition_html = self._re_non_printing_chars.sub('', definition_html)
 		if self._has_styles:
 			definition_html = self._expand_compact_html(definition_html)
+		if os.getenv('SILVERDICT_LIBRARY') == '1':
+			from ...resource_html import rewrite_article
+			return rewrite_article(definition_html, self._id[1:])
 		definition_html = self._convert_single_quotes_to_double(definition_html)
 		definition_html = self._fix_file_path(definition_html, '.css')
 		self._isolate_css()

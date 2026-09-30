@@ -1,0 +1,11 @@
+Flask
+Flask-Cors
+PyYAML
+waitress
+python-idzip
+python-lzo
+xxhash
+requests
+lxml
+beautifulsoup4
+pyglossary @ git+https://github.com/ilius/pyglossary.git@d6e679d73a5bbf7dfc0214595becd5c7c875b3c3

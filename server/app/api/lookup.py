@@ -173,5 +173,23 @@ def full_text_search(query: str) -> Response:
 
 @api.route('/cache/<path:path_name>')
 def send_cached_resources(path_name: str) -> Response:
+	import os
+	from pathlib import Path
+	if os.getenv('SILVERDICT_LIBRARY') == '1' and Path(path_name).suffix.lower() == '.spx':
+		from flask import abort, send_file
+		from ..resource_paths import resource_path
+		from ..audio_cache import render_audio
+		root = Path(current_app.extensions['dictionaries'].settings.CACHE_ROOT)
+		try:
+			source = resource_path(root, path_name)
+		except ValueError:
+			abort(404)
+		if not source.is_file():
+			abort(404)
+		try:
+			wav = render_audio(source, root)
+		except (ValueError, RuntimeError) as exc:
+			return jsonify(error=str(exc)), 422
+		return send_file(wav, mimetype='audio/wav', conditional=True)
 	response = send_from_directory(current_app.extensions['dictionaries'].settings.CACHE_ROOT, path_name)
 	return response

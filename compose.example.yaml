@@ -1,0 +1,27 @@
+name: silverdict-library
+services:
+  silverdict:
+    build:
+      context: .
+      dockerfile: Dockerfile.library
+    ports:
+      - '127.0.0.1:2628:2628'
+    environment:
+      SILVERDICT_PUBLIC_URL: http://localhost:2628
+    volumes:
+      - type: bind
+        source: ${DICTIONARY_DIR:?Set DICTIONARY_DIR to your dictionary collection}
+        target: /dictionaries
+        read_only: true
+        bind:
+          create_host_path: false
+      - ./local-state:/state
+      - ./local-library:/library
+    restart: unless-stopped
+    init: true
+    mem_limit: 6g
+    cpus: 2
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

@@ -28,3 +28,10 @@ pnpm-debug.log*
 *.njsproj
 *.sln
 *.sw?
+
+# Personal library development data
+/local-state/
+/local-library/
+/.venv/
+/.superpowers/
+.pytest_cache/
