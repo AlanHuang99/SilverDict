@@ -61,6 +61,11 @@ class MDictReader(BaseReader):
 			self._mdict = MDX(filename)
 
 		if not db_manager.dictionary_exists(self.name):
+			# Cached readers omit key lists after indexing. A retried import may
+			# have removed its partial DB index while retaining this cache.
+			if not hasattr(self._mdict, '_key_list'):
+				self._mdict = MDX(filename)
+				mdx_pickled = False
 			db_manager.drop_index()
 			for i in range(len(self._mdict._key_list)):
 				offset, key = self._mdict._key_list[i]
