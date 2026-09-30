@@ -17,6 +17,16 @@ def create_app(base_url: str = '') -> Flask:
         from .library import init_library
         init_library(app)
 
+        @app.errorhandler(Exception)
+        def library_error(error):
+            from werkzeug.exceptions import HTTPException
+            if isinstance(error, HTTPException):
+                if request.path.startswith('/api/'):
+                    return jsonify(error=error.description), error.code
+                return error
+            app.logger.exception('Library request failed')
+            return jsonify(error='The request could not complete. Please retry.'), 500
+
         @app.before_request
         def protect_library():
             # The library has a narrow API; legacy management has stateful GETs.

@@ -63,8 +63,22 @@ def init_library(app):
         if not query or not library.dictionaries.settings.dictionaries_of_group(group):
             return jsonify(articles=[], suggestions=[])
         from ..resource_html import rewrite_article
-        articles = library.dictionaries.query(group, query)
-        return jsonify(articles=[{'id': identity, 'title': title, 'html': rewrite_article(html, identity)} for identity, title, html in articles], suggestions=library.dictionaries.suggestions(group, query))
+        warnings = []
+        articles = library.dictionaries.query(group, query, errors=warnings)
+        rendered = []
+        for identity, title, html in articles:
+            try:
+                rendered.append({'id': identity, 'title': title, 'html': rewrite_article(html, identity)})
+            except Exception:
+                app.logger.exception('Could not render dictionary %s', identity)
+                warnings.append({'id': identity, 'title': title, 'error': 'This entry could not be displayed.'})
+        try:
+            suggestions = library.dictionaries.suggestions(group, query)
+        except Exception:
+            app.logger.exception('Could not generate suggestions')
+            suggestions = []
+            warnings.append({'id': 'suggestions', 'title': 'Suggestions', 'error': 'Suggestions are temporarily unavailable.'})
+        return jsonify(articles=rendered, suggestions=suggestions, warnings=warnings)
 
     app.register_blueprint(api)
     return library

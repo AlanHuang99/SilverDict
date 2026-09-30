@@ -402,7 +402,7 @@ class Dictionaries:
 		self.settings.add_to_history(key)
 		return self._dictionaries[dictionary_name].get_definition_by_key(key)
 
-	def query(self, group_name: str, key: str) -> list[tuple[str, str, str]]:
+	def query(self, group_name: str, key: str, *, errors: list | None = None) -> list[tuple[str, str, str]]:
 		"""
 		Returns a list of tuples (dictionary name, dictionary display name, HTML article)
 		"""
@@ -443,8 +443,19 @@ class Dictionaries:
 	   					self.settings.display_name_of_dictionary(dictionary_name),
 						article.replace('autoplay', '')))
 
+		def extract_with_isolation(dictionary_name: str) -> None:
+			try:
+				extract_articles_from_dictionary(dictionary_name)
+			except Exception:
+				if errors is None:
+					raise
+				logger.exception('Dictionary %s could not read entry %r', dictionary_name, key)
+				errors.append({'id': dictionary_name,
+					'title': self.settings.display_name_of_dictionary(dictionary_name),
+					'error': 'This dictionary could not read the entry.'})
+
 		run_in_thread_pool(
-			extract_articles_from_dictionary,
+			extract_with_isolation,
 			names_dictionaries_of_group,
 			num_max_workers=len(names_dictionaries_of_group)
 		)

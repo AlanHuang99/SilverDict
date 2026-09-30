@@ -71,6 +71,10 @@ or unresolved MDX aliases currently fail with an explanation instead of silently
 losing entries. A format conversion does not establish permission to distribute
 the underlying content.
 
+Search preserves healthy dictionary results when another source cannot read an entry,
+and shows a warning naming the affected dictionary. Truncated MDX record data is
+reported explicitly; conversion cannot reconstruct missing source bytes.
+
 Dictionary articles run in opaque-origin sandboxed frames. Their scripts can
 load local cache resources but cannot call management APIs or access the parent
 library document. External resources are blocked; dictionaries dependent on

@@ -1,4 +1,5 @@
 import struct
+import bisect
 import zlib
 import os
 from pathlib import Path
@@ -157,65 +158,100 @@ class MDictReader(BaseReader):
 
 		return record_null.strip().decode(self._mdict._encoding)
 
-	def _get_record_v1v2(self, f, offset: int, length: int) -> str:
+	def _record_index_v1v2(self, f):
+		"""Validate the complete on-disk record directory before random access."""
+		if hasattr(self, '_validated_record_index'):
+			return self._validated_record_index
+		f.seek(0, os.SEEK_END)
+		file_size = f.tell()
 		f.seek(self._mdict._record_block_offset)
-
-		num_record_blocks = self._mdict._read_number(f)
-		num_entries = self._mdict._read_number(f)
-		assert (num_entries == self._mdict._num_entries)
-		record_block_info_size = self._mdict._read_number(f)
-		self._mdict._read_number(f)
-
-		# record block info section
-		compressed_offset = f.tell() + record_block_info_size
-		decompressed_offset = 0
-		for i in range(num_record_blocks):
+		try:
+			num_blocks = self._mdict._read_number(f)
+			num_entries = self._mdict._read_number(f)
+			info_size = self._mdict._read_number(f)
+			data_size = self._mdict._read_number(f)
+		except struct.error as exc:
+			raise ValueError('Truncated MDX record header') from exc
+		if num_entries != self._mdict._num_entries:
+			raise ValueError('MDX record entry count does not match key index')
+		if info_size != num_blocks * self._mdict._number_width * 2:
+			raise ValueError('Invalid MDX record directory size')
+		data_start = f.tell() + info_size
+		required_size = data_start + data_size
+		if required_size > file_size:
+			raise ValueError(f'Truncated MDX record data: requires {required_size} bytes; source has {file_size} bytes')
+		blocks = []
+		starts = []
+		compressed_offset, decompressed_offset = data_start, 0
+		for _ in range(num_blocks):
 			compressed_size = self._mdict._read_number(f)
 			decompressed_size = self._mdict._read_number(f)
-			if (decompressed_offset + decompressed_size) > offset:
-				break
-			decompressed_offset += decompressed_size
+			if compressed_size < 8:
+				raise ValueError('Invalid MDX compressed record block size')
+			starts.append(decompressed_offset)
+			blocks.append((compressed_offset, compressed_size, decompressed_size))
 			compressed_offset += compressed_size
+			decompressed_offset += decompressed_size
+		if compressed_offset != required_size:
+			raise ValueError('MDX record directory disagrees with declared data size')
+		self._validated_record_index = (starts, blocks, decompressed_offset)
+		return self._validated_record_index
 
-		f.seek(compressed_offset)
-		block_compressed = f.read(compressed_size)
-		block_type = block_compressed[:4]
-		adler32 = struct.unpack('>I', block_compressed[4:8])[0]
-		# no compression
-		if block_type == b'\x00\x00\x00\x00':
-			record_block = block_compressed[8:]
-		# lzo compression
-		elif block_type == b'\x01\x00\x00\x00':
-			# LZO compression is used for engine version < 2.0
-			if lzo_is_c:
-				header = b'\xf0' + struct.pack('>I', decompressed_size)
-				record_block = lzo.decompress(header + block_compressed[8:])
+	def _decode_record_v1v2(self, f, position, compressed_size, decompressed_size):
+		f.seek(position)
+		block = f.read(compressed_size)
+		if len(block) != compressed_size or len(block) < 8:
+			raise ValueError('Truncated MDX compressed record block')
+		block_type = block[:4]
+		checksum = struct.unpack('>I', block[4:8])[0]
+		try:
+			if block_type == b'\x00\x00\x00\x00':
+				record = block[8:]
+			elif block_type == b'\x01\x00\x00\x00':
+				if lzo_is_c:
+					header = b'\xf0' + struct.pack('>I', decompressed_size)
+					record = lzo.decompress(header + block[8:])
+				else:
+					record = lzo.decompress(block[8:], initSize=decompressed_size, blockSize=1308672)
+			elif block_type == b'\x02\x00\x00\x00':
+				record = zlib.decompress(block[8:])
 			else:
-				record_block = lzo.decompress(block_compressed[8:], initSize=decompressed_size, blockSize=1308672)
-		# zlib compression
-		elif block_type == b'\x02\x00\x00\x00':
-			# decompress
-			record_block = zlib.decompress(block_compressed[8:])
-		# notice that adler32 return signed value
-		assert (adler32 == zlib.adler32(record_block) & 0xffffffff)
-		assert (len(record_block) == decompressed_size)
+				raise ValueError('Unsupported MDX record compression type')
+		except zlib.error as exc:
+			raise ValueError('Corrupt MDX compressed record data') from exc
+		if checksum != zlib.adler32(record) & 0xffffffff:
+			raise ValueError('MDX record checksum mismatch')
+		if len(record) != decompressed_size:
+			raise ValueError('MDX decompressed record size mismatch')
+		return record
 
-		record_start = offset - decompressed_offset
-		if length > 0:
-			record_null = record_block[record_start:record_start + length]
-		else:
-			record_null = record_block[record_start:]
-		return record_null.strip().decode(self._mdict._encoding)
+	def _get_record_v1v2(self, f, offset: int, length: int) -> str:
+		starts, blocks, total = self._record_index_v1v2(f)
+		if offset < 0 or offset >= total:
+			raise ValueError(f'MDX record offset {offset} is outside data range 0..{total}')
+		index = bisect.bisect_right(starts, offset) - 1
+		# A zero-length location is an upstream duplicate-offset entry; preserve its
+		# historical containing-block behavior. -1 denotes the final dictionary entry.
+		end = offset + length if length > 0 else (total if length < 0 else starts[index] + blocks[index][2])
+		if end > total:
+			raise ValueError('MDX record length extends outside data range')
+		parts = []
+		while index < len(blocks) and starts[index] < end:
+			record = self._decode_record_v1v2(f, *blocks[index])
+			begin_in_block = max(0, offset - starts[index])
+			end_in_block = min(len(record), end - starts[index])
+			parts.append(record[begin_in_block:end_in_block])
+			index += 1
+		# Decode only after joining: a UTF-8/UTF-16 character can cross a block edge.
+		return b''.join(parts).strip().decode(self._mdict._encoding)
 
 	def _get_records_in_batch(self, locations: list[tuple[int, int]]) -> list[str]:
 		if self._loaded_content_into_memory:
 			mdict_fp = self._content
 		else:
-			mdict_fp = open(self.filename, 'rb')
-		records = [self._get_record(mdict_fp, offset, length) for offset, length in locations]
-		if not self._loaded_content_into_memory:
-			mdict_fp.close()
-		return records
+			with open(self.filename, 'rb') as mdict_fp:
+				return [self._get_record(mdict_fp, offset, length) for offset, length in locations]
+		return [self._get_record(mdict_fp, offset, length) for offset, length in locations]
 
 	def get_definition_by_key(self, entry: str) -> str:
 		locations = db_manager.get_entries(entry, self.name)

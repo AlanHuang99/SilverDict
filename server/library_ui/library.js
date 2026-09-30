@@ -5,7 +5,9 @@ const frames = new Set();
 function node(tag, text, cls) { const n=document.createElement(tag); if(text!==undefined)n.textContent=text; if(cls)n.className=cls; return n; }
 async function api(path, options={}) {
   const response=await fetch('/api/library'+path, {...options,headers:{'Content-Type':'application/json','X-SilverDict-Library':'1',...options.headers}});
-  const data=await response.json();
+  let data;
+  try { data=JSON.parse(await response.text()); }
+  catch { throw new Error(`The server returned an unreadable response (${response.status}). Please try again.`); }
   if(!response.ok)throw new Error(data.error || `Request failed (${response.status})`);
   return data;
 }
@@ -64,6 +66,8 @@ async function refreshJobs(){try{const old=jobs.filter(j=>['queued','running'].i
 async function search(word,push=true){word=word.trim();if(!word)return;$('#query').value=word;view('search');const version=++searchVersion;$('#result-summary').textContent='Looking through your dictionaries…';$('#suggestions').replaceChildren();
   try{const group=$('#group').value||'Default Group';const data=await api('/search?'+new URLSearchParams({q:word,group}));if(version!==searchVersion)return;const articles=data.articles||[];const results=$('#results');results.replaceChildren();frames.clear();
     for(const article of articles){const card=node('article',undefined,'article');card.append(node('h2',article.title));const frame=document.createElement('iframe');frame.title=article.title;frame.sandbox='allow-scripts';frame.src='/library-frame';frame.referrerPolicy='no-referrer';frame.onload=()=>frame.contentWindow.postMessage({type:'article',html:article.html,id:article.id},'*');frames.add(frame);card.append(frame);results.append(card);}
+    const warnings=data.warnings||[];
+    if(warnings.length){const warning=node('aside',undefined,'lookup-warning');warning.setAttribute('role','status');warning.append(node('strong','Some entries could not be read'));for(const item of warnings)warning.append(node('p',`${item.title}: ${item.error}`));results.prepend(warning);}
     $('#result-summary').textContent=`${articles.length} ${articles.length===1?'dictionary':'dictionaries'} for “${word}”`;
     if(!articles.length)results.append(empty('No entry found','Try a suggested word, another spelling, or a different dictionary group.'));
     for(const suggestion of data.suggestions||[]){const b=node('button',suggestion);b.onclick=()=>search(suggestion);$('#suggestions').append(b);}
