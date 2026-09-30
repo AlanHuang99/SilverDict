@@ -42,4 +42,8 @@ Reading Settings persists per-group selection/order with atomic replacement;
 new imports remain enabled and stale settings cannot drop newly imported members.
 All 86 Python tests pass. Browser prototype checks pass for keyboard toggling,
 deferred frame/request counts, cached reopen, reordered/disabled results after
-reload and phone-width layout. Live image verification is pending publication.
+reload and phone-width layout. GitHub run 36764730239 published v0.1.6; the exact digest was pulled and deployed.
+Live HTTPS checks passed persistence across reload, deferred requests, cached
+reopening, all-entry expand/collapse, pronunciation and mobile layout. The local
+browser first-entry measurement for a 22-match query improved from 6.081 seconds
+to 0.313 seconds with the default reading order.
