@@ -15,6 +15,12 @@ def test_symlink_cannot_escape(tmp_path):
     (tmp_path/'link').symlink_to('/tmp', target_is_directory=True)
     with pytest.raises(ValueError): mod.resource_path(tmp_path, 'link/escape')
 
+def test_extension_only_assets_preserve_reader_state_boundaries(tmp_path):
+    assert mod.resource_path(tmp_path, 'images/.css') == tmp_path/'images/.css'
+    assert mod.resource_path(tmp_path, 'images/.png') == tmp_path/'images/.png'
+    for name in ('.resources-complete', 'mdx.pickle', '.cache/style.css', '../.css', '.pickle'):
+        with pytest.raises(ValueError): mod.resource_path(tmp_path, name)
+
 def test_copy_preserves_nested_fonts_and_original_css(tmp_path):
     src=tmp_path/'src'; dst=tmp_path/'dst'; (src/'fonts').mkdir(parents=True)
     (src/'fonts'/'test.woff2').write_bytes(b'font')

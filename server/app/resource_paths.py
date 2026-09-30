@@ -8,7 +8,11 @@ def resource_path(root, name):
     root = Path(root).resolve()
     name = str(name).replace('\\', '/')
     parts = PurePosixPath(name)
-    if parts.is_absolute() or '..' in parts.parts or ':' in name or not name or '\x00' in name or parts.suffix == '.pickle' or any(p.startswith('.') for p in parts.parts):
+    # Some dictionaries ship assets literally named .css or .png. Permit only
+    # these known asset basenames; hidden directories and reader state stay blocked.
+    hidden = any(p.startswith('.') and not (i == len(parts.parts) - 1 and p.lower() in ASSET_SUFFIXES)
+                 for i, p in enumerate(parts.parts))
+    if parts.is_absolute() or '..' in parts.parts or ':' in name or not name or '\x00' in name or parts.suffix == '.pickle' or hidden:
         raise ValueError('Invalid dictionary resource path')
     candidate = (root / name).resolve()
     if not candidate.is_relative_to(root) or candidate == root:

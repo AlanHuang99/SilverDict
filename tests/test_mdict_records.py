@@ -132,3 +132,14 @@ def test_retry_reparses_cached_mdx_without_key_list(tmp_path, monkeypatch):
     with (resources / 'mdx.pickle').open('rb') as stream:
         assert not hasattr(pickle.load(stream), '_key_list')
     assert dictionary.read_bytes() == b'synthetic source'
+
+
+def test_mdd_finder_metadata_is_ignored_without_skipping_media(tmp_path, monkeypatch):
+    reader = Reader.__new__(Reader)
+    reader._resources_dir = str(tmp_path)
+    monkeypatch.setitem(namespace, 'Path', Path)
+    monkeypatch.setitem(namespace, 'resource_path', lambda root, name: Path(root) / name)
+    reader._write_to_cache_dir('audio/.DS_Store', b'Finder metadata')
+    reader._write_to_cache_dir('audio/love.mp3', b'pronunciation')
+    assert not (tmp_path / 'audio/.DS_Store').exists()
+    assert (tmp_path / 'audio/love.mp3').read_bytes() == b'pronunciation'

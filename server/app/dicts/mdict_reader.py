@@ -27,6 +27,9 @@ class MDictReader(BaseReader):
 	FILENAME_MDX_PICKLE = 'mdx.pickle'
 
 	def _write_to_cache_dir(self, resource_filename: str, data: bytes) -> None:
+		# Finder metadata can be bundled in an MDD but is not dictionary content.
+		if resource_filename.replace('\\', '/').rsplit('/', 1)[-1] == '.DS_Store':
+			return
 		absolute_path = resource_path(self._resources_dir, resource_filename)
 		directory = Path(os.path.dirname(absolute_path))
 		directory.mkdir(parents=True, exist_ok=True)
