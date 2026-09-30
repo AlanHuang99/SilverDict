@@ -21,19 +21,16 @@ class HtmlCleaner:
 		self._lookup_url_root = 'api/lookup/' + dictionary_name + '/'
 		self._id = f'#{dictionary_name}'
 
-		if os.path.isdir(resource_dir) and not os.path.islink(resource_dir):
-			shutil.rmtree(resource_dir)
-		elif not os.path.islink(resource_dir):
-			# os.symlink(os.path.join(dictionary_path, 'res'), resource_dir)
-			typical_res_dir_name = os.path.join(dictionary_path, 'res')
-			if os.path.isdir(typical_res_dir_name):
-				os.symlink(typical_res_dir_name, resource_dir)
-			else:
-				for filename in os.listdir(dictionary_path):
-					full_name = os.path.join(dictionary_path, filename)
-					if filename.startswith(dictionary_name) and os.path.isdir(full_name):
-						os.symlink(full_name, resource_dir)
-						break
+		# Copy resources: CSS processing must never write through to originals.
+		from ...resource_paths import copy_assets
+		from pathlib import Path
+		if os.path.islink(resource_dir):
+			os.unlink(resource_dir)
+		Path(resource_dir).mkdir(parents=True, exist_ok=True)
+		resource_source = Path(dictionary_path) / 'res'
+		if not resource_source.is_dir():
+			resource_source = Path(dictionary_path)
+		copy_assets(resource_source, resource_dir)
 
 		self._resources_dir = resource_dir
 		self._cross_ref_replacement = 'href="' + self._lookup_url_root + r'\1"'
@@ -140,6 +137,9 @@ class HtmlCleaner:
 		return f'<h3 class="headword">{headword}</h3>{html}'
 
 	def clean(self, html: str, headword: str) -> str:
+		if os.getenv('SILVERDICT_LIBRARY') == '1':
+			from ...resource_html import rewrite_article
+			return rewrite_article(html, self._id[1:])
 		html = self._remove_non_printing_chars(html)
 		html = self._lower_html_tags(html)
 		html = self._convert_single_quotes_to_double(html)

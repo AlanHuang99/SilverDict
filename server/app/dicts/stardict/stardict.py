@@ -139,7 +139,7 @@ class IdxFileReader:
 		word_str = self._content[self._offset: end]
 		self._offset = end+1
 		if self._index_offset_bits == 64:
-			word_data_offset, = struct.unpack('!I', self._content[self._offset:self._offset+8])
+			word_data_offset, = struct.unpack('!Q', self._content[self._offset:self._offset+8])
 			self._offset += 8
 		elif self._index_offset_bits == 32:
 			word_data_offset, = struct.unpack('!I', self._content[self._offset:self._offset+4])

@@ -1,3 +1,5 @@
+> **Personal library fork:** see [library setup and image publishing](docs/library.md). This fork adds a local collection browser, isolated article rendering and PyGlossary StarDict import/export.
+
 # SilverDict – Web-Based Alternative to GoldenDict
 
 [![Crowdin](https://badges.crowdin.net/silverdict/localized.svg)](https://crowdin.com/project/silverdict)

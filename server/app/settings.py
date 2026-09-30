@@ -1,4 +1,5 @@
 import copy
+import tempfile
 import functools
 import os
 import sys
@@ -23,8 +24,8 @@ class Settings:
 	# Well, certainly I have not reached its production level yet, but one day...
 	HOMEDIR = str(Path.home())
 	try:
-		CACHE_ROOT = os.path.join(HOMEDIR, '.cache', 'SilverDict') if HOMEDIR else '/tmp/SilverDict'
-		APP_RESOURCES_ROOT = os.path.join(HOMEDIR, '.silverdict') if HOMEDIR else '/tmp/SilverDict'
+		CACHE_ROOT = os.getenv('SILVERDICT_CACHE') or (os.path.join(HOMEDIR, '.cache', 'SilverDict') if HOMEDIR else '/tmp/SilverDict')
+		APP_RESOURCES_ROOT = os.getenv('SILVERDICT_STATE') or (os.path.join(HOMEDIR, '.silverdict') if HOMEDIR else '/tmp/SilverDict')
 		Path(CACHE_ROOT).mkdir(parents=True, exist_ok=True)
 		Path(APP_RESOURCES_ROOT).mkdir(parents=True, exist_ok=True)
 	except PermissionError:
@@ -169,8 +170,25 @@ class Settings:
 		return os.path.expanduser(os.path.expandvars(path))
 
 	def _save_settings_to_file(self, settings: list | dict, filename: str) -> None:
-		with open(filename, 'w') as settings_file:
-			yaml.dump(settings, settings_file, Dumper=Dumper)
+		# Serialize before touching disk, then atomically publish a durable sibling.
+		payload = yaml.dump(settings, Dumper=Dumper)
+		directory = Path(filename).parent
+		temporary = None
+		try:
+			with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=directory, prefix='.settings-', delete=False) as settings_file:
+				temporary = settings_file.name
+				settings_file.write(payload)
+				settings_file.flush()
+				os.fsync(settings_file.fileno())
+			os.replace(temporary, filename)
+			fd = os.open(directory, os.O_RDONLY)
+			try:
+				os.fsync(fd)
+			finally:
+				os.close(fd)
+		finally:
+			if temporary and os.path.exists(temporary):
+				os.unlink(temporary)
 
 	@staticmethod
 	def _read_settings_from_file(filename: str) -> list | dict:

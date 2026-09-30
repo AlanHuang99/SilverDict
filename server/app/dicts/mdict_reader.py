@@ -14,6 +14,7 @@ import concurrent.futures
 from .base_reader import BaseReader
 from .mdict import MDX, MDD, HTMLCleaner
 from .. import db_manager
+from ..resource_paths import resource_path, copy_assets
 from ..utils import run_in_thread_pool
 import logging
 
@@ -25,7 +26,7 @@ class MDictReader(BaseReader):
 	FILENAME_MDX_PICKLE = 'mdx.pickle'
 
 	def _write_to_cache_dir(self, resource_filename: str, data: bytes) -> None:
-		absolute_path = os.path.join(self._resources_dir, resource_filename)
+		absolute_path = resource_path(self._resources_dir, resource_filename)
 		directory = Path(os.path.dirname(absolute_path))
 		directory.mkdir(parents=True, exist_ok=True)
 		with open(absolute_path, 'wb') as f:
@@ -92,8 +93,7 @@ class MDictReader(BaseReader):
 		# 1. mdx.pickle
 		# 2. CSS
 		# 3. JS
-		if extract_resources and all(os.path.splitext(f)[1] in ('.pickle', '.css', '.js')
-							   		 for f in os.listdir(self._resources_dir)):
+		if extract_resources and not os.path.isfile(os.path.join(self._resources_dir, '.resources-complete')):
 			# Load the resource files (.mdd), if any
 			# For example, for the dictionary collinse22f.mdx, there are four .mdd files:
 			# collinse22f.mdd, collinse22f.1.mdd, collinse22f.2.mdd, collinse22f.3.mdd
@@ -116,9 +116,14 @@ class MDictReader(BaseReader):
 						resource_filename = resource_filename[1:]
 					self._write_to_cache_dir(resource_filename, resource_file)
 
+			Path(self._resources_dir, '.resources-complete').touch()
+
 			if remove_resources_after_extraction:
 				for mdd in resources:
 					os.remove(mdd._fname)
+
+		if os.getenv('SILVERDICT_LIBRARY') == '1':
+			copy_assets(Path(filename).parent, self._resources_dir)
 
 	def _get_record(self, mdict_fp, offset: int, length: int) -> str:
 		if self._mdict._version >= 3:

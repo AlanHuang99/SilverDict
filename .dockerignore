@@ -1,0 +1,12 @@
+.git
+.github
+.superpowers
+.venv
+**/__pycache__
+**/.pytest_cache
+**/node_modules
+**/*.mdx
+**/*.mdd
+**/*.zip
+**/.env
+**/.env.*

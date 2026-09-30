@@ -31,6 +31,8 @@ class StarDictReader(BaseReader):
 		if not os.path.isfile(idxfile):
 			idxfile += '.gz'
 		dictfile = base_filename + '.dict.dz'
+		if not os.path.isfile(dictfile):
+			dictfile = base_filename + '.dict'
 		synfile = base_filename + '.syn'
 		return ifofile, idxfile, dictfile, synfile
 
@@ -49,12 +51,17 @@ class StarDictReader(BaseReader):
 
 		if not db_manager.dictionary_exists(self.name):
 			db_manager.drop_index()
-			idx_reader = IdxFileReader(idxfile)
+			idx_reader = IdxFileReader(idxfile, int(self._ifo_reader.get_ifo('idxoffsetbits') or 32))
 			for word_str in idx_reader._word_idx:
 				spans = idx_reader.get_index_by_word(word_str)
 				word_decoded = word_str.decode('utf-8')
 				for offset, size in spans:
 					db_manager.add_entry(self.simplify(word_decoded), self.name, word_decoded, offset, size)
+			# StarDict aliases need index entries, not only display annotations.
+			for index, aliases in SynFileReader(synfile).syn_dict.items():
+				_, offset, size = idx_reader.get_index_by_num(index)
+				for alias in aliases:
+					db_manager.add_entry(self.simplify(alias), self.name, alias, offset, size)
 			db_manager.commit_new_entries(self.name)
 			db_manager.create_index()
 			logger.info(f'Entries of dictionary {self.name} added to database')
@@ -71,7 +78,7 @@ class StarDictReader(BaseReader):
 			try:
 				idx_reader
 			except NameError:
-				idx_reader = IdxFileReader(idxfile)
+				idx_reader = IdxFileReader(idxfile, int(self._ifo_reader.get_ifo('idxoffsetbits') or 32))
 			for index, synonym_list in SynFileReader(synfile).syn_dict.items():
 				word_str, offset, size = idx_reader.get_index_by_num(index)
 				word_decoded = word_str.decode('utf-8')
