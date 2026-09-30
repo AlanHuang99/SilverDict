@@ -124,3 +124,25 @@ The container health endpoint is `/api/library/health`. The UI's Collection tab
 shows source status; Activity shows per-job failures and conversion warnings.
 Full-text indexing, arbitrary archive extraction and user accounts are outside
 this first release.
+
+### Reading settings and deferred entries
+
+Open Settings to select dictionaries and arrange their search-result order for
+one group. Drag rows or use Move to top / Move up / Move down, then Save changes.
+These preferences persist in `/state/reading-settings.json` and apply across
+browsers. Unchecking a dictionary leaves its source, imported index and group
+membership intact. Newly imported group members default to enabled.
+
+Search first returns an index-only list. The first matching entry opens;
+remaining entries load when expanded. Each title supports mouse, touch and
+keyboard toggling, with Expand all and Collapse all controls. Collapsing removes
+the entry frame, stopping its audio and scripts; reopening reuses its downloaded
+HTML for that lookup. Starting a different lookup cancels obsolete browser
+requests. Expanding all explicitly loads every matching entry.
+
+`GET /api/library/search?deferred=1&q=...&group=...` returns IDs and titles;
+`GET /api/library/entry?q=...&group=...&id=...` renders one enabled dictionary.
+The existing full search response remains available without `deferred=1`.
+`GET/PUT /api/library/reading-settings` reads/saves ordered `{id, enabled}` rows
+for a group. Selection also filters suggestions. PUT requires the existing
+same-origin library header and an exact, duplicate-free current dictionary list.

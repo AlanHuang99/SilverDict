@@ -35,3 +35,11 @@ in its own fork; the host deployment repository contains Compose and operations.
 
 Private source inventories, screenshots, dictionary content and host job reports
 remain outside this public repository.
+
+September 30 reading update: added index-only search, entry rendering on expansion,
+frame teardown on collapse, cached reopening and obsolete-request cancellation.
+Reading Settings persists per-group selection/order with atomic replacement;
+new imports remain enabled and stale settings cannot drop newly imported members.
+All 86 Python tests pass. Browser prototype checks pass for keyboard toggling,
+deferred frame/request counts, cached reopen, reordered/disabled results after
+reload and phone-width layout. Live image verification is pending publication.

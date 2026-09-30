@@ -202,8 +202,10 @@ class Dictionaries:
 		keys = [simplify(k) for k in keys]
 		return keys
 
-	def get_spelling_suggestions(self, group_name: str, key: str) -> list[str]:
-		names_dictionaries_of_group = self.settings.dictionaries_of_group(group_name)
+	def get_spelling_suggestions(self, group_name: str, key: str, *, dictionary_names: list[str] | None = None) -> list[str]:
+		names_dictionaries_of_group = self._query_dictionaries(group_name, dictionary_names)
+		if not names_dictionaries_of_group:
+			return []
 		suggestions = [simplify(suggestion)
 				 	for suggestion in spelling_suggestions(key,
 											 			   self.settings.group_lang(group_name))
@@ -339,12 +341,14 @@ class Dictionaries:
 			article = article.replace(self._REPLACEMENT_TEXT, 'api/cache/%s/%s' % match, 1)
 		return article
 
-	def suggestions(self, group_name: str, key: str) -> list[str]:
+	def suggestions(self, group_name: str, key: str, *, dictionary_names: list[str] | None = None) -> list[str]:
 		"""
 		Return matched headwords if the key is found;
 		Otherwise return spelling suggestions or word stems.
 		"""
-		names_dictionaries_of_group = self.settings.dictionaries_of_group(group_name)
+		names_dictionaries_of_group = self._query_dictionaries(group_name, dictionary_names)
+		if not names_dictionaries_of_group:
+			return []
 		group_lang = self.settings.group_lang(group_name)
 		# edge case for transliterated Arabic, which contains special symbols
 		if 'ar' in group_lang and is_lang['ar'](key):
@@ -390,7 +394,7 @@ class Dictionaries:
 																	   self.settings.misc_configs['num_suggestions']))
 			if len(suggestions) == 0:
 				# Now try some spelling suggestions, which is slower than the above
-				suggestions = self.get_spelling_suggestions(group_name, key)
+				suggestions = self.get_spelling_suggestions(group_name, key, dictionary_names=names_dictionaries_of_group)
 
 		return suggestions
 
@@ -402,16 +406,33 @@ class Dictionaries:
 		self.settings.add_to_history(key)
 		return self._dictionaries[dictionary_name].get_definition_by_key(key)
 
-	def query(self, group_name: str, key: str, *, errors: list | None = None) -> list[tuple[str, str, str]]:
+	def _query_dictionaries(self, group_name: str, names: list[str] | None = None) -> list[str]:
+		available = self.settings.dictionaries_of_group(group_name)
+		return available if names is None else list(dict.fromkeys(name for name in names if name in available))
+
+	def _query_keys(self, group_name: str, key: str) -> list[str]:
+		group_lang = self.settings.group_lang(group_name)
+		key = key.strip()
+		return list(dict.fromkeys([simplify(s) for s in stem(key, group_lang)] +
+			self._transliterate_key(simplify(key), group_lang)))
+
+	def matching_dictionaries(self, group_name: str, key: str, *, dictionary_names: list[str] | None = None) -> list[dict]:
+		"""Use the headword index without decoding or rendering entry bodies."""
+		keys = self._query_keys(group_name, key)
+		return [{'id': name, 'title': self.settings.display_name_of_dictionary(name)}
+			for name in self._query_dictionaries(group_name, dictionary_names)
+			if any(db_manager.entry_exists_in_dictionary(word, name) for word in keys)]
+
+	def query(self, group_name: str, key: str, *, errors: list | None = None, dictionary_names: list[str] | None = None) -> list[tuple[str, str, str]]:
 		"""
 		Returns a list of tuples (dictionary name, dictionary display name, HTML article)
 		"""
 		key = key.strip()
-		key_simplified = simplify(key)
-		names_dictionaries_of_group = self.settings.dictionaries_of_group(group_name)
+		names_dictionaries_of_group = self._query_dictionaries(group_name, dictionary_names)
+		if not names_dictionaries_of_group:
+			return []
 		group_lang = self.settings.group_lang(group_name)
-		keys = [simplify(s) for s in stem(key, group_lang)] + self._transliterate_key(key_simplified, group_lang)
-		keys = list(set(keys))
+		keys = self._query_keys(group_name, key)
 		autoplay_found = not self.settings.preferences['autoplay_audio']
 		articles = []
 

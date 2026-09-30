@@ -52,6 +52,41 @@ def init_library(app):
             return jsonify(error='Export file not found'), 404
         return send_file(path, as_attachment=True, download_name=f"dictionary-{job['source_id']}.zip", mimetype='application/zip', conditional=True)
 
+    @api.route('/reading-settings', methods=['GET', 'PUT'])
+    def reading_settings():
+        body = request.get_json(silent=True) if request.method == 'PUT' else None
+        if request.method == 'PUT' and not isinstance(body, dict):
+            return jsonify(error='Settings must be an object'), 400
+        group = body.get('group', 'Default Group') if body is not None else request.args.get('group', 'Default Group')
+        try:
+            rows = library.save_reading_settings(group, body.get('dictionaries')) if body is not None else library.reading_settings(group)
+        except ValueError as exc:
+            return jsonify(error=str(exc)), 400
+        return jsonify(group=group, dictionaries=rows)
+
+    @api.get('/entry')
+    def entry():
+        group = request.args.get('group', 'Default Group')
+        query = request.args.get('q', '').strip()
+        identity = request.args.get('id', '')
+        if group not in library.groups() or not query or len(query) > 1000:
+            return jsonify(error='Invalid group or query'), 400
+        if identity not in library.reading_dictionaries(group):
+            return jsonify(error='Dictionary is not enabled in this group'), 404
+        warnings = []
+        articles = library.dictionaries.query(group, query, errors=warnings, dictionary_names=[identity])
+        if warnings:
+            return jsonify(error=warnings[0]['error']), 422
+        if not articles:
+            return jsonify(error='No entry found in this dictionary'), 404
+        from ..resource_html import rewrite_article
+        try:
+            identity, title, html = articles[0]
+            return jsonify(id=identity, title=title, html=rewrite_article(html, identity))
+        except Exception:
+            app.logger.exception('Could not render dictionary %s', identity)
+            return jsonify(error='This entry could not be displayed.'), 422
+
     @api.get('/search')
     def search():
         group = request.args.get('group', 'Default Group')
@@ -60,12 +95,14 @@ def init_library(app):
             return jsonify(error='Unknown group'), 400
         if len(query) > 1000:
             return jsonify(error='Query is too long'), 400
-        if not query or not library.dictionaries.settings.dictionaries_of_group(group):
+        names = library.reading_dictionaries(group)
+        if not query or not names:
             return jsonify(articles=[], suggestions=[])
         from ..resource_html import rewrite_article
         warnings = []
-        articles = library.dictionaries.query(group, query, errors=warnings)
-        rendered = []
+        deferred = request.args.get('deferred') == '1'
+        articles = [] if deferred else library.dictionaries.query(group, query, errors=warnings, dictionary_names=names)
+        rendered = library.dictionaries.matching_dictionaries(group, query, dictionary_names=names) if deferred else []
         for identity, title, html in articles:
             try:
                 rendered.append({'id': identity, 'title': title, 'html': rewrite_article(html, identity)})
@@ -73,7 +110,7 @@ def init_library(app):
                 app.logger.exception('Could not render dictionary %s', identity)
                 warnings.append({'id': identity, 'title': title, 'error': 'This entry could not be displayed.'})
         try:
-            suggestions = library.dictionaries.suggestions(group, query)
+            suggestions = library.dictionaries.suggestions(group, query, dictionary_names=names)
         except Exception:
             app.logger.exception('Could not generate suggestions')
             suggestions = []

@@ -8,6 +8,8 @@ from pathlib import Path
 import shutil
 import sqlite3
 import threading
+import tempfile
+import os
 import uuid
 import zipfile
 from .catalog import Catalog, NATIVE, format_of
@@ -117,6 +119,46 @@ class Library:
             if name not in self.groups():
                 self.dictionaries.settings.add_group({'name': name, 'lang': []})
             return self.groups()
+
+    def reading_settings(self, group):
+        if group not in self.groups():
+            raise ValueError('Unknown group')
+        with self.mutation_lock:
+            path = self.state / 'reading-settings.json'
+            saved = json.loads(path.read_text()) if path.exists() else {}
+            names = self.dictionaries.settings.dictionaries_of_group(group)
+            rows = [row for row in saved.get(group, []) if row['id'] in names]
+            seen = {row['id'] for row in rows}
+            rows += [{'id': name, 'enabled': True} for name in names if name not in seen]
+            return [dict(row, title=self.dictionaries.settings.display_name_of_dictionary(row['id'])) for row in rows]
+
+    def save_reading_settings(self, group, rows):
+        with self.mutation_lock:
+            current = self.reading_settings(group)
+            if (not isinstance(rows, list) or any(not isinstance(row, dict) or
+                    not isinstance(row.get('id'), str) or type(row.get('enabled')) is not bool for row in rows)):
+                raise ValueError('Each dictionary needs an ID and an enabled flag')
+            names = [row['id'] for row in rows]
+            if len(names) != len(set(names)) or set(names) != {row['id'] for row in current}:
+                raise ValueError('The dictionary list changed. Reload Settings and try again.')
+            path = self.state / 'reading-settings.json'
+            saved = json.loads(path.read_text()) if path.exists() else {}
+            saved[group] = [{'id': row['id'], 'enabled': row['enabled']} for row in rows]
+            temporary = None
+            try:
+                with tempfile.NamedTemporaryFile(mode='w', dir=self.state, delete=False) as out:
+                    temporary = Path(out.name)
+                    json.dump(saved, out, ensure_ascii=False)
+                    out.flush()
+                    os.fsync(out.fileno())
+                temporary.replace(path)
+            finally:
+                if temporary:
+                    temporary.unlink(missing_ok=True)
+            return self.reading_settings(group)
+
+    def reading_dictionaries(self, group):
+        return [row['id'] for row in self.reading_settings(group) if row['enabled']]
 
     def healthy(self):
         return not self.worker_error and (self.thread is None or self.thread.is_alive())
