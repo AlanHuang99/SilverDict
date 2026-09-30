@@ -404,3 +404,31 @@ def test_resource_temp_and_final_saves_have_separate_budgets(tmp_path):
     assert (output / 'one.png').read_bytes() == b'123'
     assert not (output / 'over.png').exists()
     assert not (temporary / 'over.png').exists()
+
+
+def test_css_audit_ignores_comments_but_keeps_active_references(tmp_path):
+    from library_under_test.convert import ResourceAudit
+    audit = ResourceAudit(tmp_path)
+    audit.css('/* @font-face {src:url(Palatino.ttf)} @import "DFKai-SB.css"; */ body {background:url("active.png")}')
+    assert audit.result()['checked_references'] == 1
+    assert audit.result()['missing_samples'] == ['active.png']
+
+
+def test_css_audit_preserves_comment_like_text_inside_quoted_url(tmp_path):
+    from library_under_test.convert import ResourceAudit
+    asset = tmp_path / 'res/font/*literal*/actual.woff'
+    asset.parent.mkdir(parents=True)
+    asset.write_bytes(b'font')
+    audit = ResourceAudit(tmp_path)
+    audit.css('@font-face {src:url("font/*literal*/actual.woff")} /* url(ignored.ttf) */')
+    assert audit.result()['checked_references'] == 1
+    assert audit.result()['missing_references'] == 0
+
+
+def test_css_comment_state_survives_streaming_chunks(tmp_path):
+    from library_under_test.convert import audit_resources
+    ifo = stardict(tmp_path)
+    (tmp_path / 'large.css').write_text('/*' + 'x' * (1024 * 1024) + '\nurl(ignored.woff)\n*/\nbody{background:url(active.png)}')
+    audit = audit_resources(ifo)
+    assert audit['checked_references'] == 1
+    assert audit['missing_samples'] == ['active.png']

@@ -15,7 +15,9 @@ def create_app(base_url: str = '') -> Flask:
 
     if library_mode:
         from .library import init_library
+        from .library_fonts import init_library_fonts
         init_library(app)
+        init_library_fonts(app)
 
         @app.errorhandler(Exception)
         def library_error(error):
@@ -49,14 +51,15 @@ def create_app(base_url: str = '') -> Flask:
             if request.path == '/library-frame':
                 origin = os.getenv('SILVERDICT_PUBLIC_URL', request.host_url).rstrip('/')
                 cache = origin + '/api/cache/'
+                fonts = origin + '/library-fonts/'
                 response.headers['Content-Security-Policy'] = (
                     "sandbox allow-scripts; default-src 'none'; "
                     f"script-src 'unsafe-inline' 'unsafe-eval' {cache} {origin}/library-assets/frame.js; "
-                    f"style-src 'unsafe-inline' {cache}; img-src data: {cache}; "
-                    f"media-src data: {cache}; font-src data: {cache}; connect-src {cache}; "
+                    f"style-src 'unsafe-inline' {cache} {fonts}fonts.css; img-src data: {cache}; "
+                    f"media-src data: {cache}; font-src data: {cache} {fonts}; connect-src {cache}; "
                     f"base-uri {cache}; form-action 'none'; frame-ancestors 'self'"
                 )
-            elif request.path.startswith('/api/cache/'):
+            elif request.path.startswith(('/api/cache/', '/library-fonts/')):
                 # Sandboxed opaque-origin frames need CORS for local fonts.
                 response.headers['Access-Control-Allow-Origin'] = '*'
                 response.headers['Content-Security-Policy'] = "sandbox allow-scripts; default-src 'none'; style-src 'unsafe-inline'; img-src data:; frame-ancestors 'self'"

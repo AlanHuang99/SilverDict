@@ -82,6 +82,30 @@ remote content may display incompletely. Legacy management routes are disabled
 in library mode. This is a personal trusted-network deployment, not a public
 multiuser account system.
 
+## Optional shared web fonts
+
+Place locally provided fonts and a `fonts.css` stylesheet under `/library/fonts`,
+or set `SILVERDICT_FONTS` to a dedicated directory mounted into the container.
+Only root-level `fonts.css`, `.woff`, `.woff2`, `.ttf`, and `.otf` files are served
+through `/library-fonts/`; symbolic links and other files are rejected. Missing
+configuration or a missing stylesheet produces an empty stylesheet, so ordinary
+lookup still works. Font files remain outside Git and the image.
+
+Define `@font-face` rules using the family names expected by the dictionary CSS:
+
+```css
+@font-face {
+  font-family: "Example Dictionary Font";
+  src: url("/library-fonts/Example.woff2") format("woff2");
+  font-display: swap;
+}
+```
+
+The article frame loads this shared stylesheet before dictionary styles and
+scripts. Dictionary-bundled font declarations therefore retain precedence.
+Clients receive the font files directly from the local server; installing fonts
+on the server host alone does not make them available to browser clients.
+
 ## Images and updates
 
 `.github/workflows/library.yml` runs tests and a container build for pull requests

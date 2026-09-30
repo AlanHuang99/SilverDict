@@ -184,6 +184,53 @@ def validate_stardict(ifo):
 CSS_REFERENCE = re.compile(r"url\(\s*['\"]?([^'\"()]+?)['\"]?\s*\)|@import\s+['\"]([^'\"]+)['\"]", re.I)
 
 
+class CSSCommentFilter:
+    """Remove CSS comments while preserving quoted URLs and streaming state."""
+    def __init__(self):
+        self.comment = False
+        self.star = False
+        self.quote = None
+        self.escaped = False
+        self.slash = False
+
+    def feed(self, text, final=False):
+        output = []
+        for char in text:
+            if self.comment:
+                if self.star and char == '/':
+                    self.comment = False
+                    self.star = False
+                else:
+                    self.star = char == '*'
+                continue
+            if self.quote:
+                output.append(char)
+                if self.escaped:
+                    self.escaped = False
+                elif char == chr(92):
+                    self.escaped = True
+                elif char == self.quote:
+                    self.quote = None
+                continue
+            if self.slash:
+                self.slash = False
+                if char == '*':
+                    self.comment = True
+                    output.append(' ')
+                    continue
+                output.append('/')
+            if char == '/':
+                self.slash = True
+            else:
+                output.append(char)
+                if char in ('"', "'"):
+                    self.quote = char
+        if final and self.slash:
+            output.append('/')
+            self.slash = False
+        return ''.join(output)
+
+
 class ResourceAudit:
     """Bounded static reference audit; does not execute scripts or fetch URLs."""
     def __init__(self, root):
@@ -216,8 +263,10 @@ class ResourceAudit:
             if len(self.samples) < 100 and value[:1000] not in self.samples:
                 self.samples.append(value[:1000])
 
-    def css(self, text, base=None):
-        for match in CSS_REFERENCE.finditer(text):
+    def css(self, text, base=None, comments=None):
+        state = comments or CSSCommentFilter()
+        active_css = state.feed(text, final=comments is None)
+        for match in CSS_REFERENCE.finditer(active_css):
             self.reference(match.group(1) or match.group(2), base)
 
     def result(self):
@@ -232,11 +281,13 @@ class ArticleReferences(HTMLParser):
         self.audit = audit
         self.in_style = False
         self.style_buffer = ''
+        self.style_comments = CSSCommentFilter()
 
     def handle_starttag(self, tag, attributes):
         attrs = dict(attributes)
         if tag == 'style':
             self.in_style = True
+            self.style_comments = CSSCommentFilter()
         for key in ('src', 'poster', 'data'):
             if attrs.get(key):
                 self.audit.reference(attrs[key])
@@ -251,7 +302,7 @@ class ArticleReferences(HTMLParser):
 
     def handle_endtag(self, tag):
         if tag == 'style':
-            self.audit.css(self.style_buffer)
+            self.audit.css(self.style_buffer, comments=self.style_comments)
             self.style_buffer = ''
             self.in_style = False
 
@@ -259,7 +310,7 @@ class ArticleReferences(HTMLParser):
         if self.in_style:
             self.style_buffer += data
             if len(self.style_buffer) > 1024 * 1024:
-                self.audit.css(self.style_buffer)
+                self.audit.css(self.style_buffer, comments=self.style_comments)
                 self.style_buffer = ''
                 self.audit.complete = False
 
@@ -291,15 +342,16 @@ def audit_resources(ifo):
                     parser.reset()
             parser.close()
             if parser.style_buffer:
-                audit.css(parser.style_buffer)
+                audit.css(parser.style_buffer, comments=parser.style_comments)
     for css in ifo.parent.rglob('*.css'):
         if css.is_symlink():
             raise ValueError('Symbolic link CSS is not allowed')
+        comments = CSSCommentFilter()
         with css.open('r', encoding='utf-8', errors='strict') as stream:
             while text := stream.read(1024 * 1024):
                 # Retain a complete line where practical; unusually large tokens are flagged.
                 tail = stream.readline(65536)
-                audit.css(text + tail, css.parent)
+                audit.css(text + tail, css.parent, comments=comments)
                 if len(tail) == 65536 and not tail.endswith('\n'):
                     audit.complete = False
     return audit.result()
